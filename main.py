@@ -32,7 +32,7 @@ def products():
     if request.method == "GET":
         return jsonify(products_list), 200
     elif request.method == "POST":
-        data = request.get_json()
+        data = dict(request.get_json())
         if not data or "name" not in data or "buying_price" not in data or "selling_price" not in data:
             error = {"error": "Ensure all fields are set (name, buying_price, selling_price)"}
             return jsonify(error), 400
@@ -68,19 +68,20 @@ def purchases():
             return jsonify({"Error": "Request must be in JSON"}), 400
             if "product_id" not in data or "quantity" not in data:
                 return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
-            if is_int(data[product_id]):
+            elif is_int(data[product_id]):
                 return jsonify({"error":"product_id must be an int"}), 400
             if not is_number(data["quantity"]):
                 return jsonify({"error":"Quantity Must be a number"}), 400
-            
-            purchase = {
-                "product_id": int(data["product_id"]),
-                "quantity": float(data["quantity"]),
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
+            else:
+                purchase = {
+                    "product_id": int(data["product_id"]),
+                    "quantity": float(data["quantity"]),
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
             purchases_list.append(purchase)
             return jsonify(purchase), 201
-        return jsonify({"error": "Method not allowed"}), 405
+        else:
+            return jsonify({"error": "Method not allowed"}), 405
         
 
 if __name__ == "__main__":
