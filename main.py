@@ -6,6 +6,20 @@ products_list = []
 sales_list = []
 purchases_list = []
 
+def is_int(value):
+    try:
+        int(value):
+            return True
+    except(ValueError, TypeError):
+        return False
+    
+def is_number():
+    try:
+        float(value)
+        return(True)
+    except(ValueError, TypeError):
+        return False
+        
 
 @app.route("/", methods=["GET"]) 
 def home():
@@ -43,8 +57,30 @@ def sales():
         if "product_id" not in data or "quantity" not in data:
             return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
         
-        
+@app.route("/purchases", methods=="GET")
+def purchases():
+    if request.method == "GET":
+        return jsonify(purchases_list), 200
+    
+    if request.method == "POST":
+        data = request.get_json()
+        if not data:
+            return.jsonify({"Error": "Request must be in JSON"}), 400
+            if "product_id" not in data or "quantity" not in data:
+                return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
+            if is_int(data[product_id]):
+                return jsonify({"error":"product_id must be an int"}), 400
+            if not is_number(data["quantity"]):
+                return jsonify({"error":"Quantity Must be a number"}), 400
             
+            purchase = {
+                "product_id": int(data["product_id"]),
+                "quantity": float(data["quantity"]),
+                "created_at": datetime.utcnow().isoformat()+ "Z"
+            }
+            purchases_list.append(purchase)
+            return jsonify(purchase), 201
+        return jsonify({"error": "Method not allowed"}), 405
         
 
 if __name__ == "__main__":
