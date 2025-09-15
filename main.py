@@ -8,8 +8,8 @@ purchases_list = []
 
 def is_int(value):
     try:
-        int(value):
-            return True
+        int(value)
+        return True
     except(ValueError, TypeError):
         return False
     
@@ -52,12 +52,12 @@ def sales():
     elif request.method == "POST":
         data = request.get_json()
         if not data:
-            return jsonify("error": "Request must be in json"), 400
+            return jsonify({"error": "Request must be in json"}), 400
         
         if "product_id" not in data or "quantity" not in data:
             return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
         
-@app.route("/purchases", methods=="GET")
+@app.route("/api/purchases", methods=["GET", "POST"])
 def purchases():
     if request.method == "GET":
         return jsonify(purchases_list), 200
@@ -65,7 +65,7 @@ def purchases():
     if request.method == "POST":
         data = request.get_json()
         if not data:
-            return.jsonify({"Error": "Request must be in JSON"}), 400
+            return jsonify({"Error": "Request must be in JSON"}), 400
             if "product_id" not in data or "quantity" not in data:
                 return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
             if is_int(data[product_id]):
