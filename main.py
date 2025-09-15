@@ -29,6 +29,23 @@ def products():
     else:
         error = {"error": "Method not allowed"} 
         return jsonify(error), 405  
+    
+@app.route("/api/sales", methods=["GET", "POST"])
+def sales():
+    if request.method == "GET":
+        return jsonify(sales_list), 200
+    
+    elif request.method == "POST":
+        data = request.get_json()
+        if not data:
+            return jsonify("error": "Request must be in json"), 400
+        
+        if "product_id" not in data or "quantity" not in data:
+            return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
+        
+        
+            
+        
 
 if __name__ == "__main__":
     app.run(debug=True)
