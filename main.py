@@ -76,7 +76,7 @@ def purchases():
             purchase = {
                 "product_id": int(data["product_id"]),
                 "quantity": float(data["quantity"]),
-                "created_at": datetime.utcnow().isoformat()+ "Z"
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             purchases_list.append(purchase)
             return jsonify(purchase), 201
