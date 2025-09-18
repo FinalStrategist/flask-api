@@ -80,6 +80,7 @@ def products():
         return jsonify(error), 405  
     
 @app.route("/api/sales", methods=["GET", "POST"])
+@jwt_required
 def sales():
     if request.method == "GET":
         return jsonify(sales_list), 200
@@ -109,6 +110,7 @@ def sales():
         return jsonify({"error": "Method not allowed"}), 405
 
 @app.route("/api/purchases", methods=["GET", "POST"])
+@jwt_required
 def purchases():
     if request.method == "GET":
         return jsonify(purchases_list), 200
