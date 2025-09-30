@@ -1,14 +1,22 @@
 from flask import Flask, jsonify, request
-from datetime import datetime
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-import sentry_sdk
-from models import db, Product, Sale, User, Purchase
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from datetime import datetime 
+# import sentry_sdk
+from models import Product, db, Sale, Purchase
+import psycopg2
+
+# sentry_sdk.init(
+#     dsn="https://a09313d0c44719d6edf86f00606718e9@o4510040478449664.ingest.de.sentry.io/4510040482250832",
+#     # Add data like request headers and IP for users,
+#     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+#     send_default_pii=True,
+# )
 
 app = Flask(__name__)
-# Change this to a random secret key in production
-app.config['JWT_SECRET_KEY'] = 'hgyutd576uyfutu'
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:12345@localhost:5432/flask_api"
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:12039@localhost:5432/flask_api"
+
+app.config["JWT_SECRET_KEY"] = "MyApi123"
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://flaskuser:Glorious@localhost/flask_api'
+p.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:12039@localhost:5432/flask_api"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
 db.init_app(app)
@@ -104,7 +112,6 @@ def products():
         error = {"error": "Method not allowed"}
         return jsonify(error), 405
 
-# sales - product_id(int), quantity(float), created_at(datetime_now)
 @app.route("/api/sales", methods=["GET", "POST"])
 @jwt_required()
 def sales():
@@ -125,7 +132,6 @@ def sales():
         error = {"error": "Method not allowed"}
         return jsonify(error), 405
 
-# purchases - product_id(int), quantity(float), created_at(datetime_now)
 
 
 @app.route("/api/purchases", methods=["GET", "POST"])
