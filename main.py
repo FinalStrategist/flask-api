@@ -1,156 +1,167 @@
 from flask import Flask, jsonify, request
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
-from datetime import datetime 
+from datetime import datetime
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import sentry_sdk
+from models import db, Product, Sale, User, Purchase
 
 app = Flask(__name__)
+# Change this to a random secret key in production
+app.config['JWT_SECRET_KEY'] = 'hgyutd576uyfutu'
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:12345@localhost:5432/flask_api"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:12039@localhost:5432/flask_api"
 
-app.config["JWT_SECRET_KEY"] = "MyApi123"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
+db.init_app(app)
+
+
+sentry_sdk.init(
+    dsn="https://d094d4f6e41f019d48dc3cfd2d7f37df@o4510040510431234.ingest.us.sentry.io/4510040789811200",
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+)
+
 jwt = JWTManager(app)
-products_list = []
-sales_list = []
-purchases_list = []
-users_list = []
 
-def is_int(value):
-    try:
-        int(value)
-        return True
-    except(ValueError, TypeError):
-        return False
-    
-def is_number(value):
-    try:
-        float(value)
-        return True
-    except(ValueError, TypeError):
-        return False
+purchases_list=[]
+sales_list=[]
+products_list=[]
+users_list=[]
 
-@app.route("/", methods=["GET"]) 
+@app.route("/", methods=['GET'])
 def home():
-    res = {"Flask API Version": "1.0"} 
-    
-    return jsonify(res), 200
+    return jsonify({"Flask API Version": "1.0"}), 200
 
-@app.route("/api/users", methods=["GET"])
-def users():
-    return jsonify(users_list), 200
 
 @app.route("/api/register", methods=["POST"])
 def register():
     data = request.get_json()
-    if not data or "name" not in data or "email" not in data or "password" not in data:
-        error = {"error": "Ensure all fields are set"}
+    if "name" not in data.keys() or "email" not in data.keys() or "password" not in data.keys():
+        error = {"error": "Ensure all fields are filled"}
         return jsonify(error), 400
+        # Elif expected to check mail is valid/exists, password is long, fields not empty
     else:
-        users_list.append(data)
-        # Create a token
+        usr = User(username=data["name"], email = data["email"], password=data["password"])
+        db.session.add(usr)
+        db.session.commit()
+        data["id"] = usr.id
         token = create_access_token(identity=data["email"])
-        return jsonify({"user": data, "token": token}), 201  
-    
+        return jsonify({"message": "User registered successfully", "token": token}), 201
+
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
-    if not data or "email" not in data or "password" not in data:
-        error = {"error": "Make sure all fields are set"}
+    if "email" not in data.keys() or "password" not in data.keys():
+        error = {"error": "Ensure all fields are filled"}
         return jsonify(error), 400
     else:
-        for u in users_list:
-            if u["email"] == data["email"] and u["password"] == data["password"]:
-                # return a token
-                token = create_access_token(identity=data["email"])
-                return jsonify({"message": "Login successful", "token": token}), 200
-        return jsonify({"message": "Incorrect credentials"}), 401
+        usr = User.query.filter_by(email=data["email"], password=data["password"]).first()
+        if usr is None:
+            error = {"error": "Invalid email or password"}
+            return jsonify(error), 401
+        else:
+            token = create_access_token(identity=data["email"])
+            return jsonify({"token":token}), 200
 
-@app.route("/api/products", methods=["GET","POST"])
+@app.route("/api/users", methods=["GET"])
 @jwt_required
+def get_users():
+    users = User.query.all()
+    for u in users:
+      users_list.append({
+          "id":u.id,
+          "name":u.name,
+          "email":u.email,
+           "created_at": u.created_at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(u, "created_at") else None
+      })
+    return jsonify(users), 200
+
+
+@app.route("/api/products", methods=["GET", "POST"])
+@jwt_required()
 def products():
     if request.method == "GET":
+        products = Product.query.all()
+        for prod in products:
+          data={"id":prod.id,"name":prod.name,"buying_price":prod.buying_price,"selling_price":prod.selling_price}
+          products_list.append(data)
+        # retriving products
         return jsonify(products_list), 200
     elif request.method == "POST":
         data = dict(request.get_json())
-        if not data or "name" not in data or "buying_price" not in data or "selling_price" not in data:
-            error = {"error": "Ensure all fields are set (name, buying_price, selling_price)"}
+        if "name" not in data.keys() or "buying_price" not in data.keys() or "selling_price" not in data.keys():
+            error = {"error": "Ensure  all fields are set"}
             return jsonify(error), 400
         else:
-            products_list.append(data)
+            # products_list.append(data)
+            prod = Product(name=data["name"], buying_price=data["buying_price"], selling_price=data["selling_price"])
+            db.session.add(prod)
+            db.session.commit()
+            data["id"] = prod.id
             return jsonify(data), 201
-        
+        # return jsonify({'message': "Product added successfully!"})
     else:
-        error = {"error": "Method not allowed"} 
-        return jsonify(error), 405  
-    
+        error = {"error": "Method not allowed"}
+        return jsonify(error), 405
+
+# sales - product_id(int), quantity(float), created_at(datetime_now)
 @app.route("/api/sales", methods=["GET", "POST"])
-@jwt_required
+@jwt_required()
 def sales():
     if request.method == "GET":
         return jsonify(sales_list), 200
-    
     elif request.method == "POST":
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Request must be in json"}), 400
-        
-        if "product_id" not in data or "quantity" not in data:
-            return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
-        
-        if not is_int(data["product_id"]):
-            return jsonify({"error": "product_id must be an integer"}), 400
-        if not is_number(data["quantity"]):
-            return jsonify({"error": "Quantity must be a number"}), 400
-            
-        sale = {
-            "product_id": int(data["product_id"]),
-            "quantity": float(data["quantity"]),
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        sales_list.append(sale)
-        return jsonify(sale), 201
-    
+        data = dict(request.get_json())
+        if "created_at" not in data:
+            data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if "product_id" not in data.keys() or "quantity" not in data.keys():
+            error = {
+                "error": "Ensure  all fields are set and with correct input types"}
+            return jsonify(error), 400
+        else:
+            sales_list.append(data)
+            return jsonify(data), 201
     else:
-        return jsonify({"error": "Method not allowed"}), 405
+        error = {"error": "Method not allowed"}
+        return jsonify(error), 405
+
+# purchases - product_id(int), quantity(float), created_at(datetime_now)
+
 
 @app.route("/api/purchases", methods=["GET", "POST"])
-@jwt_required
+@jwt_required()
 def purchases():
     if request.method == "GET":
         return jsonify(purchases_list), 200
-    
-    elif request.method == "POST": 
-        data = request.get_json()
-        if not data:
-            return jsonify({"Error": "Request must be in JSON"}), 400
-        
-        if "product_id" not in data or "quantity" not in data:
-            return jsonify({"error": "Ensure all fields are set: product_id, quantity"}), 400
-        elif not is_int(data["product_id"]):
-            return jsonify({"error": "product_id must be an integer"}), 400
-        if not is_number(data["quantity"]):
-            return jsonify({"error": "Quantity must be a number"}), 400
+    elif request.method == "POST":
+        data = dict(request.get_json())
+        if "created_at" not in data:
+            data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if "product_id" not in data.keys() or "quantity" not in data.keys():
+            error = {
+                "error": "Ensure  all fields are set and with correct input types"}
+            return jsonify(error), 400
         else:
-            purchase = {
-                "product_id": int(data["product_id"]),
-                "quantity": float(data["quantity"]),
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            purchases_list.append(purchase)
-            return jsonify(purchase), 201
+            purchases_list.append(data)
+            return jsonify(data), 201
     else:
-        return jsonify({"error": "Method not allowed"}), 405
-        
+        error = {"error": "Method not allowed"}
+        return jsonify(error), 405
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+    app.run()
 
-    
-# Rest API HTTP rules
+# Create a Github Repo - called Flask API and Push your code.
+# Rest API HTTP Rules
 # 1. Have a route
-# 3. Always return data as json
-# 3. Specify the request method e.g. GET, POST
-# 4. Return Status code
+# 2. Always return data as JSON / Capture as JSON
+# 3. Specify the request method e.g GET, POST, PUT, DELETE, PATCH
+# 4. Return status Code (used by an application that is consuming)
 
-# JWT
-# Is a JSON Web Tokens generated in the api and sent to the client.
-# A client (Web, Mobile) cannot access a protected route without a token.
-# The client stores  that token once it is generated and sends it with a request  e.g /products
-# The token is usually added in the header part of the request.
-
+# JWT is JSON Web Token - Generatednin the API and sent to the client
+# A  Client(web,mobile) can not access a protected route without a token
+# The client stores that toejn once they login or register
+# pip install flask-jwt-extended
